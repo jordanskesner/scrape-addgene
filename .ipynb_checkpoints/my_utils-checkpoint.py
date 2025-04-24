@@ -12,6 +12,7 @@ from pathlib import Path
 import string
 import os
 import requests
+from IPython.display import clear_output
 
 #=== function to scan addgene pages ===#
 def scan_addgene(parameters):
@@ -258,26 +259,31 @@ def parse_fields(target_text, driver):
 ## NOTE: the "publication" hyperlink on addgene website is just a link to an internal record page on addgene, pull only citation for now
 ## NOTE: the file progress tracker helps, but it needs to be augmented by an ability to reset the tracker, and a filecheck for the sequence
 ## NOTE: in the target folder before starting the scrape, so that we can be sure to get all targer sequences and not redownload unnecessarily
-def scrape_plasmid_data(plasmid_IDs, reset=False):
+## NOTE: it appears that for some plasmids, a login step is required to access the sequence page
+def scrape_plasmid_data(plasmid_IDs, reset=False, verbose=True, sleep_time=5):
 
 
-    ##
-    #print(f"Called scan_addgene function with the following parameters: {parameters}")
-    print(f"Called scrape_plasmid_data function with {len(plasmid_IDs)} plasmid IDs.")
+    ####
+    if verbose:
+        print(f"Called scrape_plasmid_data function with {len(plasmid_IDs)} plasmid IDs.")
+        print(f"Sleep time is set to {sleep_time} seconds.")
 
-    ## Initialize driver
-    print("Initializing web driver")
+    #### Initialize driver
+    if verbose:
+        print("Initializing web driver")
     driver_path = ".//chromedriver-win64//chromedriver-win64//chromedriver.exe"
     service = Service(driver_path)
     driver = webdriver.Chrome(service=service)
 
-    ## Save progress to resume if interrupted
+    #### Save progress to resume if interrupted
     progress_file = "./scrape_plasmid_data_progress.txt"
-    print(f"Saving progress to {progress_file}")
+    if verbose:
+        print(f"Saving progress to {progress_file}.")
 
     ## Reset the progress tracker if true
     if reset:
-        print("Resetting progress tracking to 0")
+        if verbose:
+            print("Resetting progress tracking to 0")
         with open(progress_file, 'w') as f:
             f.write(str(0))
             start_index = 0
@@ -291,36 +297,45 @@ def scrape_plasmid_data(plasmid_IDs, reset=False):
             start_index = 0
             
     #
-    print(f"Resuming from index {start_index}")
+    if verbose:
+        print(f"Resuming from index {start_index}")
 
     ## Initialize the loop ##
     for i in range(start_index, len(plasmid_IDs)):
+
+        ## Clear output of cell ##
+        #clear_output(wait=False)
         
         #
         try:
 
+            ##
+            if verbose:
+                print(f"Performing operation {i} of {len(plasmid_IDs)}")
+            
             #
             plasmid_ID = plasmid_IDs[i]
-            print(f"Scraping data for plasmid {plasmid_ID}")
+            if verbose:
+                print(f"Scraping data for plasmid {plasmid_ID}")
 
             ## Check if there is a .gbk file in the target directory. If yes, skip to next plasmid
             # create the output directory for the plasmid info. store locally
             output_dir = Path("../0.local/scrape-addgene/plasmids/" + str(plasmid_ID) + "/")
             #
-            print(f"Checking for .gbk files at {output_dir}")
+            if verbose:
+                print(f"Checking for .gbk files at {output_dir}")
             gbk_files = list(output_dir.glob("*.gbk"))
 
             ##
             if gbk_files:
-                print("Sequence file detected in target directory. Skipping to next plasmid")
+                if verbose:
+                    print("Sequence file detected in target directory. Skipping to next plasmid")
             ##
             else:
                 #    
-                os.makedirs(output_dir, exist_ok=True)  # Create output directory if it doesn't exist
-                print(f"Created output directory for plasmid info at {output_dir}")
-
-                # define sleep time
-                sleep_time = 5
+                os.makedirs(output_dir, exist_ok=True)
+                if verbose:
+                    print(f"Created output directory for plasmid info at {output_dir}")
 
                 # Open the target website
                 url = 'https://www.addgene.org/'
@@ -357,83 +372,156 @@ def scrape_plasmid_data(plasmid_IDs, reset=False):
                 }
 
                 #### Pull the info from the webpage  ####
-                print("Scraping plasmid info")
-                try: 
+                if verbose:
+                    print("Scraping plasmid info")
+                    
+                ##
+                try:
+                    if verbose:
+                        print(plasmid_ID)
                     current_info["addgene_ID"] = plasmid_ID
                 except:
                     pass
-                try: 
+
+                ##
+                try:
                     current_info["vector_backbone"] = parse_fields("Vector backbone", driver)
+                    if verbose:
+                        print(f"vector backbone: {current_info['vector_backbone']}")
                 except:
+                    if verbose:
+                        print("Exception occurred at vector backbone")
                     pass
+
+                ##
                 try: 
                     current_info["backbone_size"] = int(parse_fields("Backbone size", driver))
                 except:
+                    if verbose:
+                        print("Exception occurred at backbone size")
                     pass
+
+                ##
                 try: 
                     current_info["total_size"] = int(parse_fields("Total vector size", driver))
                 except:
+                    if verbose:
+                        print("Exception occurred at total size")
                     pass
+
+                ##
                 try: 
                     current_info["insert_size"] = current_info["total_size"] - current_info["backbone_size"]
                 except:
+                    if verbose:
+                        print("Exception occurred at insert size")
                     pass
+
+                ##
                 try: 
                     current_info["vector_type"] = parse_fields("Vector type", driver)
                 except:
+                    if verbose:
+                        print("Exception occurred at vector type")
                     pass
+
+                ##
                 try: 
                     current_info["selectable_markers"] = parse_fields("Selectable markers", driver)
                 except:
+                    if verbose:
+                        print("Exception occurred at selectable markers")
                     pass
+
+                ##
                 try: 
                     current_info["bacterial_resistance"] = parse_fields("Bacterial Resistance", driver)
                 except:
+                    if verbose:
+                        print("Exception occurred at bacterial resistance")
                     pass
+
+                ##
                 try: 
                     current_info["growth_temperature"] = parse_fields("Growth Temperature", driver)
                 except:
+                    if verbose:
+                        print("Exception occurred at growth temperature")
                     pass
+
+                ##
                 try: 
                     current_info["growth_strain"] = parse_fields("Growth Strain", driver)
                 except:
+                    if verbose:
+                        print("Exception occurred at growth strain")
                     pass
+
+                ##
                 try: 
                     current_info["copy_number"] = parse_fields("Copy number", driver)
                 except:
+                    if verbose:
+                        print("Exception occurred at copy number")
                     pass
+
+                ##
                 try: 
                     current_info["gene_insert_name"] = parse_fields("Gene/Insert name", driver)
                 except:
+                    if verbose:
+                        print("Exception occurred at gene insert name")
                     pass
+
+                ##
                 try: 
                     current_info["species"] = parse_fields("Species", driver)
                 except:
+                    if verbose:
+                        print("Exception occurred at species")
                     pass
+
+                ##
                 try: 
                     current_info["genbank_ID"] = parse_fields("GenBank ID", driver)
                 except:
+                    if verbose:
+                        print("Exception occurred at genbank ID")
                     pass
+
+                ##
                 try: 
                     current_info["entrez_gene"] = parse_fields("Entrez Gene", driver)
                 except:
+                    if verbose:
+                        print("Exception occurred at entrez gene")
                     pass
+
+                ##
                 try: 
                     current_info["tag_fusion_protein"] = parse_fields("Fusion Protein", driver)
                 except:
+                    if verbose:
+                        print("Exception occurred at fusion protein")
                     pass
+
+                ##
                 try: 
                     current_info["cloning_method"] = parse_fields("Cloning method", driver)
                 except:
+                    if verbose:
+                        print("Exception occurred at cloning method")
                     pass
 
-                ## plasmid name ##
-                # Find element labelled title
+                ## plasmid name
+
                 try:
                     plasmid_name = driver.title
                     #print("Plasmid name:", plasmid_name)
                     current_info["plasmid_name"] = plasmid_name
                 except:
+                    if verbose:
+                        print("Exception occurred at plasmid name")
                     pass
 
                 ## plasmid purpose ##
@@ -448,6 +536,8 @@ def scrape_plasmid_data(plasmid_IDs, reset=False):
                             break
                     current_info["plasmid_purpose"] = plasmid_purpose
                 except:
+                    if verbose:
+                        print("Exception occurred at plasmid purpose")
                     pass
 
                 ## depositing lab ##
@@ -462,6 +552,8 @@ def scrape_plasmid_data(plasmid_IDs, reset=False):
                     #print("depositor:", depositor, "\n")
                     current_info["depositor"] = depositor
                 except:
+                    if verbose:
+                        print("Exception occurred at depositing lab")
                     pass
 
                 # Extract full text of citation
@@ -473,6 +565,8 @@ def scrape_plasmid_data(plasmid_IDs, reset=False):
                     # Display parsed info
                     #print("DOI:", doi)
                 except:
+                    if verbose:
+                        print("Exception occurred at citation")
                     pass
 
                 ## commonly requested with ##
@@ -489,10 +583,12 @@ def scrape_plasmid_data(plasmid_IDs, reset=False):
                     #print("Extracted digit values:", digits)
                     current_info["commonly_requested_with"] = digits
                 except:
+                    if verbose:
+                        print("Exception occurred at commonly requested with")
                     pass
 
                 ## output the list info
-                plasmid_info_file = output_dir + "/" + plasmid_ID + ".txt"
+                plasmid_info_file = output_dir / f"{plasmid_ID}.txt"
 
                 # Write to file as tab-delimited
                 with open(plasmid_info_file, "w",  encoding="utf-8") as f:
@@ -502,30 +598,53 @@ def scrape_plasmid_data(plasmid_IDs, reset=False):
                 print(f"Dictionary written to {plasmid_info_file}")
 
                 #### Download the full plasmid fasta sequence ####
-                ## locate the sequences button
-                # wait for previous processing to complete
-                time.sleep(sleep_time) # Wait for the page to load
-                # sequences webpage will be plasmid ID followed by 'sequences
-                # navigate to sequences page
+                try:
+                    if verbose:
+                        print("Attempting to download the plasmid sequence")
+                    
+                    sequences_url = plasmid_url + "/sequences"
+                    ##
+                    if verbose:
+                        print(f"Opening sequence url at {sequences_url}")
+                    ##
+                    time.sleep(sleep_time) 
+                    driver.get(sequences_url)
+                    time.sleep(sleep_time)
+                    ##
+                    genbank_link = driver.find_element(By.CSS_SELECTOR, "a.genbank-file-download")
+                    if verbose:
+                        print(f"Genbank link: {genbank_link}")
+                    ##
+                    gbk_url = genbank_link.get_attribute("href")
+                    if verbose:
+                        print(f"Genbank url: {gbk_url}")
+                    ##
+                    filename = gbk_url.split("/")[-1]
+                    if verbose:
+                        print(f"Filename: {filename}")
 
-                sequences_url = plasmid_url + "/sequences"
-                #print(sequences_url)
-                driver.get(sequences_url)
-                time.sleep(sleep_time) # Wait for the page to load
-                genbank_link = driver.find_element(By.CSS_SELECTOR, "a.genbank-file-download")
-                gbk_url = genbank_link.get_attribute("href")
-                filename = gbk_url.split("/")[-1]
-                gbk_output_path = os.path.join(output_dir, filename)
-                #
-                response = requests.get(gbk_url)
-                with open(gbk_output_path, "wb") as f:
-                    f.write(response.content)
-                print(f"Downloaded .gbk file to: {gbk_output_path}")
+                    ##
+                    gbk_output_path = os.path.join(output_dir, filename)
+                    if verbose:
+                        print(f"Genbank output path: {gbk_output_path}")
+                    
+                    ##
+                    response = requests.get(gbk_url)
+                    with open(gbk_output_path, "wb") as f:
+                        f.write(response.content)
+                    print(f"Downloaded .gbk file to: {gbk_output_path}")
+
+                    ##
+                    print("Incrementing progress tracker")
+                    with open(progress_file, 'w') as f:
+                        f.write(str(i + 1))
 
                 ##
-                print("Incrementing progress tracker")
-                with open(progress_file, 'w') as f:
-                    f.write(str(i + 1))
+                except Exception as e:
+                    if verbose:
+                        print("Exception occurred at sequence download attempt")
+                        error_message = str(e)
+                        print("An error occurred:", error_message)
 
         # Exception
         except:
